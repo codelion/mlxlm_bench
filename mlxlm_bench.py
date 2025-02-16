@@ -199,7 +199,7 @@ def parse_args() -> argparse.Namespace:
 
     # Allow multiple models by repeating the -m flag.
     parser.add_argument(
-        "-m", "--model", action="append", required=True,
+        "-m", "--model", action="append", required=True, default="mlx-community/llama2-7b-mlx",
         help="Path to the MLX model to benchmark. Can be specified multiple times for different models."
     )
     parser.add_argument(
@@ -207,7 +207,7 @@ def parse_args() -> argparse.Namespace:
         help="Number of synthetic prompt tokens. Accepts multiple comma-separated values."
     )
     parser.add_argument(
-        "-n", "--n-gen", nargs="+", action=CommaSeparatedIntegers, default=[128],
+        "-n", "--n-gen", nargs="+", action=CommaSeparatedIntegers, default=[512],
         help="Number of tokens to generate. Accepts multiple comma-separated values."
     )
     parser.add_argument(
