@@ -67,6 +67,7 @@ All required packages are listed in the [requirements.txt](requirements.txt) fil
 
 ## Usage
 Run the benchmark script from the command line, specifying your desired models and token configurations. For example:
+
     ```
     python benchmark.py -m models/7B/ggml-model-q4_0.gguf -m models/13B/ggml-model-q4_0.gguf -p 128 -n 128,256,512
 
@@ -75,3 +76,45 @@ In this example:
 - Two models are benchmarked.
 - A single prompt token configuration (`128`) is used.
 - Three different generation token configurations (`128`, `256`, and `512`) are tested.
+
+## Command-Line Options
+- **`-m, --model`**
+Specify the path to an MLX-LM model. Can be used multiple times for benchmarking several models. Default: `mlx-community/llama2-7b-mlx`
+Example: `-m models/7B/model1 -m models/13B/model2`
+
+- **`-p, --n-prompt`**
+Specify one or more values (or comma-separated lists) for synthetic prompt tokens. Default: `512`
+Example: `-p 0,128`
+
+- **`-n, --n-gen`**
+Specify one or more values (or comma-separated lists) for generation tokens. Default: `512`
+Example: `-n 128,256,512`
+
+- **`-o, --output`**
+Output format for the benchmark results. Supported formats: csv, json, jsonl, md. Default: `md`
+Example: `- o json`
+
+- **`-r, --repetitions`**
+Number of iterations per configuration to average out performance results. Default: `5`
+Example: `-r 10`
+
+## Benchmarking Methodology
+1. **Warmup Phase:**
+Each model configuration is first warmed up to ensure that any lazy initializations (e.g., JIT compilation, memory allocation) are complete before measurements begin.
+2. **Benchmark Execution:**
+For each combination of model, prompt token count, and generation token count, the tool runs a series of benchmark iterations. Synthetic tokens are generated using a random sampling of the model’s vocabulary, and the model's generate() function is invoked in verbose mode to capture detailed performance logs.
+3. **Metric Aggregation:**
+Captured logs are parsed to extract key metrics, which are then averaged over the specified repetitions to provide robust performance statistics.
+
+## Converting Models to MLX Format
+If you have a pretrained model in another format and need to convert it for use with MLX-LM, refer to the official model conversion guide. The conversion typically involves:
+- Converting model weights and configurations to be compatible with MLX-LM.
+- Ensuring that the tokenizer aligns with MLX-LM expectations.
+- Validating the converted model using provided test scripts.
+For full conversion instructions, please visit the MLX-LM Conversion Guide.
+
+## Contributing
+Contributions to enhance the MLX-LM Benchmark Tool are welcome.
+
+## Contact
+For questions, support, or feedback, please open an issue in the repository or contact the maintainer at gauri.nagavkar@gmail.com.
