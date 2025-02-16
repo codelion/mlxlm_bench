@@ -2,10 +2,12 @@
 """
 MLX-LM Benchmark Tool
 
-This script benchmarks the performance of an MLX-LM model by generating synthetic
-prompt tokens and capturing generation metrics (e.g., tokens-per-second, peak memory usage).
-It supports multiple output formats (CSV, JSON, JSONL, Markdown) and performs repeated runs
-to average the results.
+This script benchmarks the performance of MLX-LM models by generating synthetic
+prompt tokens and capturing performance metrics such as tokens-per-second (TPS),
+execution time, and peak memory usage. It supports multiple input values for model,
+prompt tokens, and generation tokens. The tool runs benchmarks for each combination,
+averages the results over several repetitions, and saves the aggregated results in
+the desired output format.
 """
 
 import argparse
@@ -16,7 +18,7 @@ import re
 import io
 import contextlib
 import csv
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Union
 
 import mlx.core as mx
 import mlx.nn as nn
@@ -26,7 +28,7 @@ from mlx_lm import load, generate
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 
-def load_model_tokenizer(model_path: str) -> Tuple[Any, Any]:
+def load_model_tokenizer(model_path: str) -> (Any, Any):
     """
     Load the MLX-LM model and its associated tokenizer.
 
@@ -46,7 +48,7 @@ def generate_synthetic_tokens(tokenizer: Any, seq_length: int) -> List[int]:
     Generate a synthetic sequence of tokens using the tokenizer's vocabulary.
 
     Args:
-        tokenizer (Any): The tokenizer instance with vocabulary details.
+        tokenizer (Any): The tokenizer instance.
         seq_length (int): Desired total number of tokens.
 
     Returns:
@@ -103,7 +105,7 @@ def parse_metrics(log_output: str) -> Dict[str, Optional[float]]:
     if mem_match:
         metrics["ram_usage"] = float(mem_match.group(1))
 
-    # Calculate total execution time if all relevant metrics are available
+    # Calculate total execution time if metrics are available
     if (metrics["prompt_tokens"] is not None and metrics["prompt_tps"] is not None and
         metrics["response_tokens"] is not None and metrics["response_tps"] is not None):
         metrics["exec_time"] = (metrics["prompt_tokens"] / metrics["prompt_tps"]) + (
@@ -126,107 +128,64 @@ def benchmark_performance(model: Any, tokenizer: Any, seq_length: int, max_token
         Dict[str, Optional[float]]: Performance metrics from this iteration.
     """
     input_tokens = generate_synthetic_tokens(tokenizer, seq_length)
-
-    # Capture stdout from generate() to parse the performance logs
     output_buffer = io.StringIO()
     with contextlib.redirect_stdout(output_buffer):
         generate(model, tokenizer, input_tokens, max_tokens=max_tokens, verbose=True)
-
     captured_output = output_buffer.getvalue()
     return parse_metrics(captured_output)
 
 
-def save_results(results: Dict[str, Any], output_format: str) -> None:
+def save_results(results: Union[Dict[str, Any], List[Dict[str, Any]]], output_format: str) -> None:
     """
     Save the benchmark results in the specified output format.
 
     Args:
-        results (Dict[str, Any]): Aggregated benchmark results.
+        results (Union[Dict[str, Any], List[Dict[str, Any]]]): Benchmark results.
         output_format (str): Format to save the results ("csv", "json", "jsonl", or "md").
     """
+    # Ensure results is a list of dictionaries.
+    if not isinstance(results, list):
+        results = [results]
+
     if output_format == "json":
         with open("benchmark_results.json", "w") as f:
             json.dump(results, f, indent=4)
         logging.info("Results saved to benchmark_results.json")
     elif output_format == "jsonl":
-        with open("benchmark_results.jsonl", "a") as f:
-            f.write(json.dumps(results) + "\n")
-        logging.info("Results appended to benchmark_results.jsonl")
+        with open("benchmark_results.jsonl", "w") as f:
+            for res in results:
+                f.write(json.dumps(res) + "\n")
+        logging.info("Results saved to benchmark_results.jsonl")
     elif output_format == "csv":
         with open("benchmark_results.csv", "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(["Model", "Prompt Tokens", "Prompt TPS", "Response Tokens",
-                             "Response TPS", "Execution Time (s)", "Memory Usage (GB)"])
-            writer.writerow([
-                results.get("Model"),
-                results.get("Prompt Tokens"),
-                results.get("Prompt TPS"),
-                results.get("Response Tokens"),
-                results.get("Response TPS"),
-                results.get("Execution Time (s)"),
-                results.get("Memory Usage (GB)")
-            ])
+            if results:
+                writer = csv.DictWriter(f, fieldnames=results[0].keys())
+                writer.writeheader()
+                for res in results:
+                    writer.writerow(res)
         logging.info("Results saved to benchmark_results.csv")
     elif output_format == "md":
-        with open("benchmark_results.md", "w") as f:
-            f.write("| Metric | Value |\n")
-            f.write("| --- | --- |\n")
-            for key, value in results.items():
-                f.write(f"| {key} | {value} |\n")
+        if results:
+            with open("benchmark_results.md", "w") as f:
+                headers = list(results[0].keys())
+                f.write("| " + " | ".join(headers) + " |\n")
+                f.write("|" + "|".join(["---"] * len(headers)) + "|\n")
+                for res in results:
+                    f.write("| " + " | ".join(str(res[h]) for h in headers) + " |\n")
         logging.info("Results saved to benchmark_results.md")
     else:
         logging.warning(f"Unsupported output format: {output_format}")
 
 
-def run_benchmark(args: argparse.Namespace) -> Dict[str, Any]:
+class CommaSeparatedIntegers(argparse.Action):
     """
-    Execute the benchmark process including warmup and repeated iterations.
-
-    Args:
-        args (argparse.Namespace): Command-line arguments.
-
-    Returns:
-        Dict[str, Any]: Aggregated benchmark results.
+    Custom argparse action to allow comma-separated integers.
     """
-    model, tokenizer = load_model_tokenizer(args.model)
-
-    # --- Warmup Run ---
-    logging.info("Running warmup run...")
-    _ = benchmark_performance(model, tokenizer, args.n_prompt, args.n_gen)
-    logging.info("Warmup complete.")
-
-    # --- Benchmark Iterations ---
-    logging.info("Starting benchmark iterations...")
-    metrics_list: List[Dict[str, Optional[float]]] = []
-    for i in range(args.repetitions):
-        logging.info(f"Iteration {i + 1}/{args.repetitions}...")
-        metrics = benchmark_performance(model, tokenizer, args.n_prompt, args.n_gen)
-        metrics_list.append(metrics)
-
-    # Compute average metrics from all iterations
-    avg_metrics: Dict[str, Optional[float]] = {}
-    metric_keys = ["prompt_tokens", "prompt_tps", "response_tokens", "response_tps", "exec_time", "ram_usage"]
-    for key in metric_keys:
-        valid_values = [m[key] for m in metrics_list if m[key] is not None]
-        avg_metrics[key] = sum(valid_values) / len(valid_values) if valid_values else None
-
-    results = {
-        "Model": args.model,
-        "Prompt Tokens": int(avg_metrics["prompt_tokens"]),
-        "Prompt TPS": round(avg_metrics["prompt_tps"], 3),
-        "Response Tokens": int(avg_metrics["response_tokens"]),
-        "Response TPS": round(avg_metrics["response_tps"], 3),
-        "Execution Time (s)": round(avg_metrics["exec_time"], 3),
-        "Memory Usage (GB)": round(avg_metrics["ram_usage"], 2) if avg_metrics["ram_usage"] is not None else None
-    }
-
-    logging.info("Benchmark completed. Averaged results:")
-    logging.info(json.dumps(results, indent=4))
-
-    # Save results in the chosen format
-    save_results(results, args.output)
-
-    return results
+    def __call__(self, parser, namespace, values, option_string=None):
+        result = []
+        for value in values:
+            result.extend([int(x) for x in value.split(',') if x])
+        setattr(namespace, self.dest, result)
 
 
 def parse_args() -> argparse.Namespace:
@@ -237,17 +196,19 @@ def parse_args() -> argparse.Namespace:
         argparse.Namespace: The parsed command-line arguments.
     """
     parser = argparse.ArgumentParser(description="Benchmark MLX-LM model performance.")
+
+    # Allow multiple models by repeating the -m flag.
     parser.add_argument(
-        "-m", "--model", type=str, default="mlx-community/llama2-7b-mlx",
-        help="Path to the MLX model to benchmark."
+        "-m", "--model", action="append", required=True,
+        help="Path to the MLX model to benchmark. Can be specified multiple times for different models."
     )
     parser.add_argument(
-        "-p", "--n-prompt", type=int, default=512,
-        help="Number of synthetic prompt tokens."
+        "-p", "--n-prompt", nargs="+", action=CommaSeparatedIntegers, default=[512],
+        help="Number of synthetic prompt tokens. Accepts multiple comma-separated values."
     )
     parser.add_argument(
-        "-n", "--n-gen", type=int, default=128,
-        help="Number of tokens to generate."
+        "-n", "--n-gen", nargs="+", action=CommaSeparatedIntegers, default=[128],
+        help="Number of tokens to generate. Accepts multiple comma-separated values."
     )
     parser.add_argument(
         "-o", "--output", type=str, choices=["csv", "json", "jsonl", "md"],
@@ -255,9 +216,56 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "-r", "--repetitions", type=int, default=5,
-        help="Number of benchmark iterations to average results over."
+        help="Number of benchmark repetitions to average results over."
     )
+
     return parser.parse_args()
+
+
+def run_benchmarks(args: argparse.Namespace) -> List[Dict[str, Any]]:
+    """
+    Execute the benchmark for each combination of model, prompt tokens, and generation tokens.
+
+    Args:
+        args (argparse.Namespace): Command-line arguments.
+
+    Returns:
+        List[Dict[str, Any]]: Aggregated benchmark results.
+    """
+    all_results = []
+    for model_path in args.model:
+        model, tokenizer = load_model_tokenizer(model_path)
+        for n_prompt in args.n_prompt:
+            for n_gen in args.n_gen:
+                logging.info(f"Benchmarking model: {model_path} | Prompt tokens: {n_prompt} | Generation tokens: {n_gen}")
+                # Warmup run
+                _ = benchmark_performance(model, tokenizer, n_prompt, n_gen)
+                # Benchmark iterations
+                metrics_list = []
+                for i in range(args.repetitions):
+                    logging.info(f"Iteration {i + 1}/{args.repetitions} for model: {model_path}, prompt: {n_prompt}, n_gen: {n_gen}")
+                    metrics = benchmark_performance(model, tokenizer, n_prompt, n_gen)
+                    metrics_list.append(metrics)
+                # Compute average metrics
+                avg_metrics = {}
+                keys = ["prompt_tokens", "prompt_tps", "response_tokens", "response_tps", "exec_time", "ram_usage"]
+                for key in keys:
+                    valid_values = [m[key] for m in metrics_list if m[key] is not None]
+                    avg_metrics[key] = sum(valid_values) / len(valid_values) if valid_values else None
+                result = {
+                    "Model": model_path,
+                    "n_prompt": n_prompt,
+                    "n_gen": n_gen,
+                    "Prompt Tokens": int(avg_metrics["prompt_tokens"]),
+                    "Prompt TPS": round(avg_metrics["prompt_tps"], 3),
+                    "Response Tokens": int(avg_metrics["response_tokens"]),
+                    "Response TPS": round(avg_metrics["response_tps"], 3),
+                    "Execution Time (s)": round(avg_metrics["exec_time"],3),
+                    "Memory Usage (GB)": round(avg_metrics["ram_usage"], 2) if avg_metrics["ram_usage"] is not None else None
+                }
+                all_results.append(result)
+    save_results(all_results, args.output)
+    return all_results
 
 
 def main() -> None:
@@ -265,7 +273,7 @@ def main() -> None:
     Main entry point for the benchmark script.
     """
     args = parse_args()
-    run_benchmark(args)
+    run_benchmarks(args)
 
 
 if __name__ == "__main__":
