@@ -203,16 +203,16 @@ def parse_args() -> argparse.Namespace:
         help="Path to the MLX model to benchmark. Can be specified multiple times for different models."
     )
     parser.add_argument(
-        "-p", "--n-prompt", nargs="+", action=CommaSeparatedIntegers, default=[512],
-        help="Number of synthetic prompt tokens. Accepts multiple comma-separated values."
+        "-p", "--n-prompt", nargs="+", action=CommaSeparatedIntegers, default=[128],
+        help="Input Sequence Length (ISL). Number of synthetic prompt tokens. Accepts multiple comma-separated values."
     )
     parser.add_argument(
-        "-n", "--n-gen", nargs="+", action=CommaSeparatedIntegers, default=[128],
-        help="Number of tokens to generate. Accepts multiple comma-separated values."
+        "-n", "--n-gen", nargs="+", action=CommaSeparatedIntegers, default=[512],
+        help="Outout Sequence Length (OSL). Number of tokens to generate. Accepts multiple comma-separated values."
     )
     parser.add_argument(
         "-o", "--output", type=str, choices=["csv", "json", "jsonl", "md"],
-        default="md", help="Output format for the benchmark results."
+        default="csv", help="Output format for the benchmark results."
     )
     parser.add_argument(
         "-r", "--repetitions", type=int, default=5,
