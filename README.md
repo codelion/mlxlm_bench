@@ -21,7 +21,7 @@ All required packages are listed in the requirements.txt file.
 
    ```
    git clone https://github.com/gauri-nagavkar/mlxlm_bench.git
-   cd mlxlm-benchmark
+   cd mlxlm_bench
    ```
 
 2. **Create and Activate a Virtual Environment (Recommended):**
@@ -38,12 +38,18 @@ All required packages are listed in the requirements.txt file.
 ## Usage
 Run the benchmark script from the command line, specifying your desired models and token configurations. For example:
 
-    python benchmark.py -m models/7B/ggml-model-q4_0.gguf -m models/13B/ggml-model-q4_0.gguf -p 128 -n 128,256,512
+    python mlxlm_bench.py -m mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit -p 128 -n 256 -o csv
 
 In this example:
-- Two models are benchmarked.
+- The model 4-bit quantized version of DeepSeek-R1-Distill-Qwen-7B is benchmarked.
 - A single value for Input Sequence Length (ISL) (`128`) is tested.
-- Three different values for Output Sequence Length (OSL) (`128`, `256`, and `512`) are tested.
+- A single value for Output Sequence Length (OSL) (`256`) is tested.
+
+We get the results:
+| Model | n_prompt | n_gen | Prompt Tokens | Prompt TPS | Response Tokens | Response TPS | Execution Time (s) | Memory Usage (GB) |
+|---|---|---|---|---|---|---|---|---|
+| mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit | 128 | 256 | 128 | 295.877 | 256 | 42.705 | 6.427 | 4.39 |
+
 
 ## Command-Line Options
 - **`-m, --model`**
