@@ -38,10 +38,8 @@ All required packages are listed in the requirements.txt file.
 ## Usage
 Run the benchmark script from the command line, specifying your desired models and token configurations. For example:
 
-    ```
     python benchmark.py -m models/7B/ggml-model-q4_0.gguf -m models/13B/ggml-model-q4_0.gguf -p 128 -n 128,256,512
 
-    ```
 In this example:
 - Two models are benchmarked.
 - A single value for Input Sequence Length (ISL) (`128`) is tested.
