@@ -199,11 +199,11 @@ def parse_args() -> argparse.Namespace:
 
     # Allow multiple models by repeating the -m flag.
     parser.add_argument(
-        "-m", "--model", action="append", required=True, default="mlx-community/llama2-7b-mlx",
+        "-m", "--model", action="append", required=True,
         help="Path to the MLX model to benchmark. Can be specified multiple times for different models."
     )
     parser.add_argument(
-        "-p", "--n-prompt", nargs="+", action=CommaSeparatedIntegers, default=[512],
+        "-p", "--n-prompt", nargs="+", action=CommaSeparatedIntegers, default=[128],
         help="Number of synthetic prompt tokens. Accepts multiple comma-separated values."
     )
     parser.add_argument(
@@ -212,7 +212,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "-o", "--output", type=str, choices=["csv", "json", "jsonl", "md"],
-        default="md", help="Output format for the benchmark results."
+        default="csv", help="Output format for the benchmark results."
     )
     parser.add_argument(
         "-r", "--repetitions", type=int, default=5,
