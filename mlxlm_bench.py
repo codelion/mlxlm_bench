@@ -204,11 +204,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "-p", "--n-prompt", nargs="+", action=CommaSeparatedIntegers, default=[128],
-        help="Number of synthetic prompt tokens. Accepts multiple comma-separated values."
+        help="Input Sequence Length (ISL). Number of synthetic prompt tokens. Accepts multiple comma-separated values."
     )
     parser.add_argument(
         "-n", "--n-gen", nargs="+", action=CommaSeparatedIntegers, default=[512],
-        help="Number of tokens to generate. Accepts multiple comma-separated values."
+        help="Outout Sequence Length (OSL). Number of tokens to generate. Accepts multiple comma-separated values."
     )
     parser.add_argument(
         "-o", "--output", type=str, choices=["csv", "json", "jsonl", "md"],
