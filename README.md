@@ -1,6 +1,6 @@
 # MLX-LM Benchmark Tool
 
-The MLX-LM Benchmark Tool is a Python utility that evaluates the inference performance of MLX-LM models. It offers functionality similar to llama-bench, providing an easy way to benchmark your models.
+The MLX-LM Benchmark Tool is a Python utility that evaluates the inference performance of MLX-LM models. It offers functionality similar to [llama-bench](https://github.com/ggml-org/llama.cpp/tree/master/examples/llama-bench), providing an easy way to benchmark your models.
 
 
 ## Requirements
