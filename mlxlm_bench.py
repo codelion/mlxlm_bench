@@ -135,7 +135,7 @@ def benchmark_performance(model: Any, tokenizer: Any, seq_length: int, max_token
     return parse_metrics(captured_output)
 
 
-def save_results(results: Union[Dict[str, Any], List[Dict[str, Any]]], output_format: str) -> None:
+def save_results(output_file, results: Union[Dict[str, Any], List[Dict[str, Any]]], output_format: str) -> None:
     """
     Save the benchmark results in the specified output format.
 
@@ -148,31 +148,31 @@ def save_results(results: Union[Dict[str, Any], List[Dict[str, Any]]], output_fo
         results = [results]
 
     if output_format == "json":
-        with open("benchmark_results.json", "w") as f:
+        with open(f"{output_file}.json", "w") as f:
             json.dump(results, f, indent=4)
-        logging.info("Results saved to benchmark_results.json")
+        logging.info(f"Results saved to {output_file}.json")
     elif output_format == "jsonl":
-        with open("benchmark_results.jsonl", "w") as f:
+        with open(f"{output_file}.jsonl", "w") as f:
             for res in results:
                 f.write(json.dumps(res) + "\n")
-        logging.info("Results saved to benchmark_results.jsonl")
+        logging.info(f"Results saved to {output_file}.jsonl")
     elif output_format == "csv":
-        with open("benchmark_results.csv", "w", newline="") as f:
+        with open(f"{output_file}.csv", "w", newline="") as f:
             if results:
                 writer = csv.DictWriter(f, fieldnames=results[0].keys())
                 writer.writeheader()
                 for res in results:
                     writer.writerow(res)
-        logging.info("Results saved to benchmark_results.csv")
+        logging.info(f"Results saved to {output_file}.csv")
     elif output_format == "md":
         if results:
-            with open("benchmark_results.md", "w") as f:
+            with open(f"{output_file}.md", "w") as f:
                 headers = list(results[0].keys())
                 f.write("| " + " | ".join(headers) + " |\n")
                 f.write("|" + "|".join(["---"] * len(headers)) + "|\n")
                 for res in results:
                     f.write("| " + " | ".join(str(res[h]) for h in headers) + " |\n")
-        logging.info("Results saved to benchmark_results.md")
+        logging.info(f"Results saved to {output_file}.md")
     else:
         logging.warning(f"Unsupported output format: {output_format}")
 
@@ -218,6 +218,10 @@ def parse_args() -> argparse.Namespace:
         "-r", "--repetitions", type=int, default=5,
         help="Number of benchmark repetitions to average results over."
     )
+    parser.add_argument(
+        "-f", "--output-filename", type=str, default="benchmark_results",
+        help="Name of the output file, without extension."
+    )
 
     return parser.parse_args()
 
@@ -254,8 +258,8 @@ def run_benchmarks(args: argparse.Namespace) -> List[Dict[str, Any]]:
                     avg_metrics[key] = sum(valid_values) / len(valid_values) if valid_values else None
                 result = {
                     "Model": model_path,
-                    "n_prompt": n_prompt,
-                    "n_gen": n_gen,
+                    # "n_prompt": n_prompt,
+                    # "n_gen": n_gen,
                     "Prompt Tokens": int(avg_metrics["prompt_tokens"]),
                     "Prompt TPS": round(avg_metrics["prompt_tps"], 3),
                     "Response Tokens": int(avg_metrics["response_tokens"]),
@@ -264,7 +268,7 @@ def run_benchmarks(args: argparse.Namespace) -> List[Dict[str, Any]]:
                     "Memory Usage (GB)": round(avg_metrics["ram_usage"], 2) if avg_metrics["ram_usage"] is not None else None
                 }
                 all_results.append(result)
-    save_results(all_results, args.output)
+    save_results(args.output_filename, all_results, args.output)
     return all_results
 
 
