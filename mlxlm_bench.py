@@ -114,7 +114,7 @@ def parse_metrics(log_output: str) -> Dict[str, Optional[float]]:
     return metrics
 
 
-def benchmark_performance(model: Any, tokenizer: Any, seq_length: int, max_tokens: int) -> Dict[str, Optional[float]]:
+def benchmark_performance(model: Any, tokenizer: Any, seq_length: int, max_tokens: int, **generate_kwargs) -> Dict[str, Optional[float]]:
     """
     Run a single benchmark iteration, capturing performance metrics.
 
@@ -123,6 +123,7 @@ def benchmark_performance(model: Any, tokenizer: Any, seq_length: int, max_token
         tokenizer (Any): The associated tokenizer.
         seq_length (int): Number of synthetic prompt tokens.
         max_tokens (int): Maximum number of tokens to generate.
+        **generate_kwargs: Additional keyword arguments for the generate() function.
 
     Returns:
         Dict[str, Optional[float]]: Performance metrics from this iteration.
@@ -130,9 +131,10 @@ def benchmark_performance(model: Any, tokenizer: Any, seq_length: int, max_token
     input_tokens = generate_synthetic_tokens(tokenizer, seq_length)
     output_buffer = io.StringIO()
     with contextlib.redirect_stdout(output_buffer):
-        generate(model, tokenizer, input_tokens, max_tokens=max_tokens, verbose=True)
+        generate(model, tokenizer, input_tokens, max_tokens=max_tokens, verbose=True, **generate_kwargs)
     captured_output = output_buffer.getvalue()
     return parse_metrics(captured_output)
+
 
 
 def save_results(output_file, results: Union[Dict[str, Any], List[Dict[str, Any]]], output_format: str) -> None:
@@ -211,19 +213,43 @@ def parse_args() -> argparse.Namespace:
         help="Outout Sequence Length (OSL). Number of tokens to generate. Accepts multiple comma-separated values."
     )
     parser.add_argument(
-        "-o", "--output", type=str, choices=["csv", "json", "jsonl", "md"],
-        default="csv", help="Output format for the benchmark results."
-    )
-    parser.add_argument(
         "-r", "--repetitions", type=int, default=5,
         help="Number of benchmark repetitions to average results over."
+    )
+    parser.add_argument(
+        "-o", "--output-format", type=str, choices=["csv", "json", "jsonl", "md"],
+        default="csv", help="Output format for the benchmark results."
     )
     parser.add_argument(
         "-f", "--output-filename", type=str, default="benchmark_results",
         help="Name of the output file, without extension."
     )
+    parser.add_argument(
+        "--gen-args", type=str, nargs="*", default=[],
+        help="Additional keyword arguments for generate() in key=value format (e.g., --gen-args kv_group_size=64"
+    )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    # Convert --gen-args list into a dictionary
+    gen_args = {}
+    for arg in args.gen_args:
+        if '=' in arg:
+            key, value = arg.split("=", 1)
+            # Optionally, try to convert value to int or float
+            if value.isdigit():
+                value = int(value)
+            else:
+                try:
+                    value = float(value)
+                except ValueError:
+                    pass  # leave it as a string if conversion fails
+            gen_args[key] = value
+        else:
+            parser.error("Invalid format for --gen-args. Expected key=value.")
+    args.gen_args = gen_args
+
+    return args
 
 
 def run_benchmarks(args: argparse.Namespace) -> List[Dict[str, Any]]:
@@ -243,12 +269,12 @@ def run_benchmarks(args: argparse.Namespace) -> List[Dict[str, Any]]:
             for n_gen in args.n_gen:
                 logging.info(f"Benchmarking model: {model_path} | Prompt tokens: {n_prompt} | Generation tokens: {n_gen}")
                 # Warmup run
-                _ = benchmark_performance(model, tokenizer, n_prompt, n_gen)
+                _ = benchmark_performance(model, tokenizer, n_prompt, n_gen, **args.gen_args)
                 # Benchmark iterations
                 metrics_list = []
                 for i in range(args.repetitions):
                     logging.info(f"Iteration {i + 1}/{args.repetitions} for model: {model_path}, prompt: {n_prompt}, n_gen: {n_gen}")
-                    metrics = benchmark_performance(model, tokenizer, n_prompt, n_gen)
+                    metrics = benchmark_performance(model, tokenizer, n_prompt, n_gen, **args.gen_args)
                     metrics_list.append(metrics)
                 # Compute average metrics
                 avg_metrics = {}
@@ -258,17 +284,15 @@ def run_benchmarks(args: argparse.Namespace) -> List[Dict[str, Any]]:
                     avg_metrics[key] = sum(valid_values) / len(valid_values) if valid_values else None
                 result = {
                     "Model": model_path,
-                    # "n_prompt": n_prompt,
-                    # "n_gen": n_gen,
                     "Prompt Tokens": int(avg_metrics["prompt_tokens"]),
                     "Prompt TPS": round(avg_metrics["prompt_tps"], 3),
                     "Response Tokens": int(avg_metrics["response_tokens"]),
                     "Response TPS": round(avg_metrics["response_tps"], 3),
-                    "Execution Time (s)": round(avg_metrics["exec_time"],3),
+                    "Execution Time (s)": round(avg_metrics["exec_time"], 3),
                     "Memory Usage (GB)": round(avg_metrics["ram_usage"], 2) if avg_metrics["ram_usage"] is not None else None
                 }
                 all_results.append(result)
-    save_results(args.output_filename, all_results, args.output)
+    save_results(args.output_filename, all_results, args.output_format)
     return all_results
 
 

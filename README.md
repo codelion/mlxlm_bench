@@ -38,13 +38,14 @@ All required packages are listed in the requirements.txt file.
 ## Usage
 Run the benchmark script from the command line, specifying your desired models and token configurations. For example:
 
-    python mlxlm_bench.py -m mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit -p 128 -n 256 -o csv -f benchmark_results_4bit
+    python mlxlm_bench.py -m mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit -p 128 -n 256 -o csv -f benchmark_results_4bit --gen-args kv_group_size=64
 
 In this example:
 - The model 4-bit quantized version of DeepSeek-R1-Distill-Qwen-7B is benchmarked.
 - A single value for Input Sequence Length (ISL) (`128`) is tested.
 - A single value for Output Sequence Length (OSL) (`256`) is tested.
 - The output is saved in a file called benchmark_results_4bit.csv
+- Extra argument of kv_group_size is passed to the generate function as a key-value pair
 
 We get the results:
 | Model | Prompt Tokens | Prompt TPS | Response Tokens | Response TPS | Execution Time (s) | Memory Usage (GB) |
@@ -76,6 +77,10 @@ Example: `-r 10`
 - **`-f, --output-filename`**
 Name of the output file, without extension. Default: `benchmark_results`
 Example: `-f results_7B_4b`
+
+- **`--gen-args`**
+Additional keyword arguments for generate() in key=value format
+Example: `--gen-args kv_group_size=64`
   
 ## Contributing
 Contributions to enhance the MLX-LM Benchmark Tool are welcome.
