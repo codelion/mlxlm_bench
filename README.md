@@ -48,9 +48,9 @@ In this example:
 - Extra argument of kv_group_size is passed to the generate function as a key-value pair
 
 We get the results:
-| Model | Prompt Tokens | Prompt TPS | Response Tokens | Response TPS | Execution Time (s) | Memory Usage (GB) |
-|---|---|---|---|---|---|---|
-| mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit | 128 | 295.148 | 256 | 42.468 | 6.463 | 4.39 |
+| Model | Model Load Time (s) | Prompt Tokens | Prompt TPS | Response Tokens | Response TPS | Execution Time (s) | Memory Usage (GB) |
+|---|---|---|---|---|---|---|---|
+| mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit | 1.897 | 128 | 295.901 | 256 | 42.847 | 6.407 | 4.39 |
 
 
 ## Command-Line Options
