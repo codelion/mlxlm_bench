@@ -18,6 +18,7 @@ import re
 import io
 import contextlib
 import csv
+import time
 from typing import Any, Dict, List, Optional, Union
 
 import mlx.core as mx
@@ -28,19 +29,23 @@ from mlx_lm import load, generate
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 
-def load_model_tokenizer(model_path: str) -> (Any, Any):
+def load_model_tokenizer(model_path: str) -> (Any, Any, Any):
     """
     Load the MLX-LM model and its associated tokenizer.
+    Calculate the load time for the model.
 
     Args:
         model_path (str): Path or identifier of the model.
 
     Returns:
-        Tuple[Any, Any]: The loaded model and tokenizer.
+        Tuple[Any, Any, Any]: The loaded model, tokenizer and model load time.
     """
     logging.info(f"Loading model from: {model_path}...")
+    start_time = time.time()
     model, tokenizer = load(model_path)
-    return model, tokenizer
+    model_load_time = time.time() - start_time
+    logging.info(f"Model loaded in {model_load_time:.3f} seconds.")
+    return model, tokenizer, model_load_time
 
 
 def generate_synthetic_tokens(tokenizer: Any, seq_length: int) -> List[int]:
@@ -264,7 +269,7 @@ def run_benchmarks(args: argparse.Namespace) -> List[Dict[str, Any]]:
     """
     all_results = []
     for model_path in args.model:
-        model, tokenizer = load_model_tokenizer(model_path)
+        model, tokenizer, model_load_time = load_model_tokenizer(model_path)
         for n_prompt in args.n_prompt:
             for n_gen in args.n_gen:
                 logging.info(f"Benchmarking model: {model_path} | Prompt tokens: {n_prompt} | Generation tokens: {n_gen}")
@@ -284,6 +289,7 @@ def run_benchmarks(args: argparse.Namespace) -> List[Dict[str, Any]]:
                     avg_metrics[key] = sum(valid_values) / len(valid_values) if valid_values else None
                 result = {
                     "Model": model_path,
+                    "Model Load Time (s)": round(model_load_time, 3),
                     "Prompt Tokens": int(avg_metrics["prompt_tokens"]),
                     "Prompt TPS": round(avg_metrics["prompt_tps"], 3),
                     "Response Tokens": int(avg_metrics["response_tokens"]),
